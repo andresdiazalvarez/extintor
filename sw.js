@@ -1,4 +1,4 @@
-const CACHE_NAME = "extintor-v3-rosa";
+const CACHE_NAME = "extintor-v4-cliente-limpiar";
 const ASSETS = [
   "./",
   "./index.html",

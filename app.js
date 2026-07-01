@@ -15,6 +15,7 @@ const defectOptions = [
 ];
 
 const fields = [
+  "cliente",
   "edificio",
   "cantidad",
   "ubicacion",
@@ -39,19 +40,6 @@ function createId() {
   return `rec-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-function fillYearLists() {
-  const fabricacion = $("aniosFabricacion");
-  const retimbrado = $("aniosRetimbrado");
-  fabricacion.innerHTML = `<option value=""></option>`;
-  retimbrado.innerHTML = `<option value=""></option>`;
-  for (let year = 2005; year <= 2026; year += 1) {
-    fabricacion.insertAdjacentHTML("beforeend", `<option value="${year}"></option>`);
-  }
-  for (let year = 2010; year <= 2026; year += 1) {
-    retimbrado.insertAdjacentHTML("beforeend", `<option value="${year}"></option>`);
-  }
-}
-
 function normalizeDefects(defects) {
   return (Array.isArray(defects) ? defects : []).map((defect) => {
     if (defect === "Cristal del extintor ausente o roto.") return "Cristal armario roto o sin cristal.";
@@ -62,6 +50,7 @@ function normalizeDefects(defects) {
 function cleanRecord(record = {}) {
   return {
     id: record.id || createId(),
+    cliente: safeText(record.cliente),
     edificio: safeText(record.edificio ?? record.edificioCodigo),
     cantidad: safeText(record.cantidad),
     ubicacion: safeText(record.ubicacion),
@@ -106,6 +95,7 @@ function rowToImportedRecord(rowValues, index) {
   for (let col = 1; col <= 10; col += 1) values[col] = excelCellToText(rowValues[col]);
   return cleanRecord({
     id: `import-${Date.now()}-${index}-${Math.random().toString(16).slice(2)}`,
+    cliente: "",
     cantidad: values[2],
     edificio: values[3],
     ubicacion: values[4],
@@ -210,7 +200,7 @@ function renderTable() {
   const rows = filteredRecords();
   body.innerHTML = "";
   if (!rows.length) {
-    body.innerHTML = `<tr><td colspan="14">No hay registros con ese filtro.</td></tr>`;
+    body.innerHTML = `<tr><td colspan="15">No hay registros con ese filtro.</td></tr>`;
     return;
   }
   for (const record of rows) {
@@ -219,6 +209,7 @@ function renderTable() {
     const photo2 = record.photos[1] ? `<img class="tablePhoto" src="${record.photos[1]}" alt="Foto 2">` : `<span class="noPhoto">—</span>`;
     const tr = document.createElement("tr");
     tr.innerHTML = `
+      <td>${safeText(record.cliente) || "-"}</td>
       <td>${safeText(record.edificio) || "-"}</td>
       <td><strong>${safeText(record.cantidad) || "-"}</strong></td>
       <td>${safeText(record.ubicacion) || "-"}</td>
@@ -329,6 +320,19 @@ async function deleteCurrent() {
   showView("list");
 }
 
+async function clearAllRecords() {
+  if (!records.length) {
+    alert("No hay registros para eliminar.");
+    return;
+  }
+  if (!confirm("¿Seguro que quieres eliminar todos los registros guardados en este dispositivo?")) return;
+  records = [];
+  await saveRecords();
+  renderTable();
+  showView("home");
+  alert("Registros eliminados. Ya puedes importar otro cliente.");
+}
+
 async function importExcelFile(file) {
   if (!window.ExcelJS) return alert("No se ha cargado el lector de Excel.");
   const workbook = new ExcelJS.Workbook();
@@ -372,6 +376,7 @@ async function downloadExcel() {
   workbook.created = new Date();
   const sheet = workbook.addWorksheet("Extintores");
   const columns = [
+    ["cliente", "Cliente", 22],
     ["edificio", "Edificio", 14],
     ["cantidad", "Número SYCo", 18],
     ["ubicacion", "Ubicación", 42],
@@ -424,7 +429,7 @@ async function downloadExcel() {
       const photo = record.photos[photoIndex];
       if (!photo) return;
       const imageId = workbook.addImage({ base64: photo, extension: "jpeg" });
-      const col = photoIndex === 0 ? 19 : 20;
+      const col = photoIndex === 0 ? 20 : 21;
       sheet.addImage(imageId, { tl: { col, row: row.number - 1 }, ext: { width: 120, height: 85 }, editAs: "oneCell" });
     });
   }
@@ -456,6 +461,7 @@ function bindEvents() {
   $("newRecordFromListBtn").addEventListener("click", () => openForm());
   $("downloadExcelBtn").addEventListener("click", downloadExcel);
   $("downloadExcelFromTableBtn").addEventListener("click", downloadExcel);
+  $("clearRecordsBtn").addEventListener("click", clearAllRecords);
   $("viewTableFromFormBtn").addEventListener("click", () => showView("list"));
   $("importExcelBtn").addEventListener("click", () => $("importExcelInput").click());
   $("importExcelInput").addEventListener("change", async (event) => {
@@ -501,7 +507,6 @@ if ("serviceWorker" in navigator) {
 }
 
 async function init() {
-  fillYearLists();
   await loadRecords();
   bindEvents();
   updateStats();
