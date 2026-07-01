@@ -339,30 +339,22 @@ async function importExcelFile(file) {
   await workbook.xlsx.load(await file.arrayBuffer());
   const sheet = workbook.worksheets[0];
   if (!sheet) return alert("No encuentro ninguna hoja en ese Excel.");
-  const existingKeys = new Set(records.map(recordKey).filter((key) => key !== "||"));
   const imported = [];
-  let repeated = 0;
   sheet.eachRow((row, rowNumber) => {
     if (rowNumber === 1) return;
     const record = rowToImportedRecord(row.values, rowNumber);
     const hasData = [record.edificio, record.cantidad, record.ubicacion, record.modelo, record.numeroSerie].some((value) => safeText(value).trim());
     if (!hasData) return;
-    const key = recordKey(record);
-    if (key !== "||" && existingKeys.has(key)) {
-      repeated += 1;
-      return;
-    }
-    existingKeys.add(key);
     imported.push(record);
   });
   if (!imported.length) {
-    $("importStatus").textContent = `No se añadieron registros nuevos. Repetidos: ${repeated}.`;
-    return alert(`No se añadieron registros nuevos.\nRepetidos: ${repeated}.`);
+    $("importStatus").textContent = "No se encontraron registros para importar.";
+    return alert("No se encontraron registros para importar.");
   }
   records = [...imported, ...records];
   await saveRecords();
-  $("importStatus").textContent = `Importados ${imported.length}. Repetidos ignorados: ${repeated}.`;
-  alert(`Importación correcta.\nNuevos: ${imported.length}\nRepetidos ignorados: ${repeated}`);
+  $("importStatus").textContent = `Importados ${imported.length} registros. No se han descartado repetidos.`;
+  alert(`Importación correcta.\nRegistros importados: ${imported.length}\nNo se han descartado repetidos.`);
 }
 
 function defectFlag(selected, defect) {
